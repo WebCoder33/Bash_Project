@@ -1,0 +1,102 @@
+#!/bin/bash
+
+CAPACITY="";
+POWER="";
+previous="";
+
+
+function getPowerValues {
+
+    CAPACITY=$(cat /sys/class/power_supply/BAT1/capacity);
+    POWER=$(cat /sys/class/power_supply/BAT1/status);
+
+}
+
+function fullLevel {
+
+    if [ "$CAPACITY" != "$previous" ]
+    then
+        if [ "$CAPACITY" == "100" ] 
+        then
+            notify-send --urgency=low "battary FULL. You can stop charging!" 2>/dev/null
+            echo "battary full, you can stop charging" | festival --tts &
+            previous=$CAPACITY;
+        fi
+    fi
+
+}
+
+function middleLevel {
+
+    if [ "$CAPACITY" != "$previous" ]
+    then
+        if [ "$CAPACITY" == "50" ] 
+        then
+            notify-send --urgency=low "battary is $CAPACITY%. dont worry be happy!" 2>/dev/null
+            echo "battary is $CAPACITY%, dont worry be happy!" | festival --tts &
+            previous=$CAPACITY;
+        elif [ "$CAPACITY" == "25" ]
+        then
+            notify-send --urgency=normal "battary is $CAPACITY%. dont worry be careful!" 2>/dev/null
+            echo "battary is $CAPACITY%, dont worry be careful!" | festival --tts &
+            previous=$CAPACITY;
+        fi
+    fi
+
+} 
+
+function lowLevel {
+    
+    if [ "$CAPACITY" != "$previous" ]
+    then
+        notify-send --urgency=critical "Attention! tary LOW! It is ($CAPACITY%)! Start charging please!" 2>/dev/null
+        echo "Attention! battary LOW! It is $CAPACITY%, Start charging please" | festival --tts &
+        previous=$CAPACITY;
+    fi
+
+}
+
+function criticalLevel {
+
+    notify-send --urgency=critical "Danger. Battary MAX LOW - is ($CAPACITY%)! Sorry but Power will be off after 20 seconds!" 2>/dev/null
+    echo "Danger. Battary MAX LOW - is ($CAPACITY%)! Sorry but Power will be off after 20 seconds!" | festival --tts 
+
+    sleep 10;
+
+    notify-send --urgency=critical "BATTARY MAX LOW! POWER OFF NOW!" 2>/dev/null
+    echo "BATTARY MAX LOW! BATTARY MAX LOW! POWER OFF NOW! POWER OFF NOW!" | festival --tts 
+
+    sleep 30;
+
+    getPowerValues
+    if [ "$POWER" == "Charging" ]
+    then
+        notify-send --urgency=normal "Power off cancel. Charging started! " 2>/dev/null
+        echo "Power off cancel. Charging started!" | festival --tts
+    else
+        poweroff;
+    fi
+
+} 
+
+while [ true ]
+do
+	getPowerValues
+    if [ "$POWER" == "Charging" ] || [ "$POWER" == "Full" ]
+    then
+        case "$CAPACITY" in   
+            100 ) fullLevel ;;
+            50 ) middleLevel ;;
+            * ) ;;
+        esac;
+    else
+        case "$CAPACITY" in   
+            50|25 ) middleLevel ;;
+            15|10|8 ) lowLevel ;;
+            [1-5] ) criticalLevel ;; 
+            * ) ;;
+        esac;
+    fi #Добавить обработку статуса батареи Unknow; + сделать получение статуса и % динамически через find
+    sleep 10;
+done
+
